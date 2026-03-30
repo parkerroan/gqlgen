@@ -19,6 +19,7 @@ type MyQuery {
     todo(id: ID!): Todo
     lastTodo: Todo
     todos: [Todo!]!
+    direction(input: DirectionInput!): Direction
 }
 
 type MyMutation {
@@ -33,7 +34,7 @@ type Todo {
 }
 
 "Passed to createTodo to create a new todo"
-input TodoInput {
+input TodoInput @validate(namespace: "TodoInput") {
     "The body text"
     text: String!
     "Is it done already?"
@@ -46,4 +47,29 @@ scalar Map
 "Prevents access to a field if the user doesnt have the matching role"
 directive @hasRole(role: Role!) on FIELD_DEFINITION
 directive @user(id: ID!) on MUTATION | QUERY | FIELD
+directive @validate(namespace: String!) on INPUT_OBJECT
+directive @oneOf on INPUT_OBJECT
+
+type Direction {
+    origin: String
+    destination: String
+}
+
+input Destination @oneOf @validate(namespace: "Destination") {
+    flightablePlace: FlightablePlace
+    nonFlightablePlace: NonFlightablePlace
+}
+
+input FlightablePlace {
+    iata: String!
+}
+
+input NonFlightablePlace {
+    uuid: String!
+}
+
+input DirectionInput {
+    destination: Destination!
+    someField: String
+}
 

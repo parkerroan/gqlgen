@@ -9,10 +9,33 @@ import (
 	"strconv"
 )
 
+type Destination struct {
+	FlightablePlace    *FlightablePlace    `json:"flightablePlace,omitempty"`
+	NonFlightablePlace *NonFlightablePlace `json:"nonFlightablePlace,omitempty"`
+}
+
+type Direction struct {
+	Origin      *string `json:"origin,omitempty"`
+	Destination *string `json:"destination,omitempty"`
+}
+
+type DirectionInput struct {
+	Destination *Destination `json:"destination"`
+	SomeField   *string      `json:"someField,omitempty"`
+}
+
+type FlightablePlace struct {
+	Iata string `json:"iata"`
+}
+
 type MyMutation struct {
 }
 
 type MyQuery struct {
+}
+
+type NonFlightablePlace struct {
+	UUID string `json:"uuid"`
 }
 
 // Passed to createTodo to create a new todo

@@ -5,6 +5,7 @@ package todo
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -59,6 +60,10 @@ func New() Config {
 	c.Directives.User = func(ctx context.Context, obj any, next graphql.Resolver, id int) (any, error) {
 		return next(context.WithValue(ctx, ckey("userId"), id))
 	}
+	c.Directives.Validate = func(ctx context.Context, obj any, next graphql.Resolver, namespace string) (any, error) {
+		fmt.Printf("[validate] directive called with namespace: %q, obj type: %T\n", namespace, obj)
+		return next(ctx)
+	}
 	return c
 }
 
@@ -101,6 +106,22 @@ func (r *QueryResolver) LastTodo(ctx context.Context) (*Todo, error) {
 
 func (r *QueryResolver) Todos(ctx context.Context) ([]*Todo, error) {
 	return r.todos, nil
+}
+
+func (r *QueryResolver) Direction(ctx context.Context, input DirectionInput) (*Direction, error) {
+	return &Direction{
+		Destination: func() *string {
+			if input.Destination.FlightablePlace != nil {
+				s := "iata:" + input.Destination.FlightablePlace.Iata
+				return &s
+			}
+			if input.Destination.NonFlightablePlace != nil {
+				s := "uuid:" + input.Destination.NonFlightablePlace.UUID
+				return &s
+			}
+			return nil
+		}(),
+	}, nil
 }
 
 type MutationResolver resolvers

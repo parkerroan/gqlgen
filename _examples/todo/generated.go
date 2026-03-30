@@ -32,20 +32,27 @@ type ResolverRoot interface {
 }
 
 type DirectiveRoot struct {
-	HasRole func(ctx context.Context, obj any, next graphql.Resolver, role Role) (res any, err error)
-	User    func(ctx context.Context, obj any, next graphql.Resolver, id int) (res any, err error)
+	HasRole  func(ctx context.Context, obj any, next graphql.Resolver, role Role) (res any, err error)
+	User     func(ctx context.Context, obj any, next graphql.Resolver, id int) (res any, err error)
+	Validate func(ctx context.Context, obj any, next graphql.Resolver, namespace string) (res any, err error)
 }
 
 type ComplexityRoot struct {
+	Direction struct {
+		Destination func(childComplexity int) int
+		Origin      func(childComplexity int) int
+	}
+
 	MyMutation struct {
 		CreateTodo func(childComplexity int, todo TodoInput) int
 		UpdateTodo func(childComplexity int, id int, changes map[string]any) int
 	}
 
 	MyQuery struct {
-		LastTodo func(childComplexity int) int
-		Todo     func(childComplexity int, id int) int
-		Todos    func(childComplexity int) int
+		Direction func(childComplexity int, input DirectionInput) int
+		LastTodo  func(childComplexity int) int
+		Todo      func(childComplexity int, id int) int
+		Todos     func(childComplexity int) int
 	}
 
 	Todo struct {
@@ -63,6 +70,7 @@ type MyQueryResolver interface {
 	Todo(ctx context.Context, id int) (*Todo, error)
 	LastTodo(ctx context.Context) (*Todo, error)
 	Todos(ctx context.Context) ([]*Todo, error)
+	Direction(ctx context.Context, input DirectionInput) (*Direction, error)
 }
 
 type executableSchema graphql.ExecutableSchemaState[ResolverRoot, DirectiveRoot, ComplexityRoot]
@@ -78,6 +86,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	ec := newExecutionContext(nil, e, nil)
 	_ = ec
 	switch typeName + "." + field {
+
+	case "Direction.destination":
+		if e.ComplexityRoot.Direction.Destination == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Direction.Destination(childComplexity), true
+	case "Direction.origin":
+		if e.ComplexityRoot.Direction.Origin == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Direction.Origin(childComplexity), true
 
 	case "MyMutation.createTodo":
 		if e.ComplexityRoot.MyMutation.CreateTodo == nil {
@@ -101,6 +122,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MyMutation.UpdateTodo(childComplexity, args["id"].(int), args["changes"].(map[string]any)), true
+
+	case "MyQuery.direction":
+		if e.ComplexityRoot.MyQuery.Direction == nil {
+			break
+		}
+
+		args, err := ec.field_MyQuery_direction_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.MyQuery.Direction(childComplexity, args["input"].(DirectionInput)), true
 
 	case "MyQuery.lastTodo":
 		if e.ComplexityRoot.MyQuery.LastTodo == nil {
@@ -153,6 +186,10 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputDestination,
+		ec.unmarshalInputDirectionInput,
+		ec.unmarshalInputFlightablePlace,
+		ec.unmarshalInputNonFlightablePlace,
 		ec.unmarshalInputTodoInput,
 	)
 	first := true
@@ -274,6 +311,17 @@ func (ec *executionContext) dir_user_args(ctx context.Context, rawArgs map[strin
 	return args, nil
 }
 
+func (ec *executionContext) dir_validate_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "namespace", ec.unmarshalNString2string)
+	if err != nil {
+		return nil, err
+	}
+	args["namespace"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_MyMutation_createTodo_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -309,6 +357,17 @@ func (ec *executionContext) field_MyQuery___type_args(ctx context.Context, rawAr
 		return nil, err
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_MyQuery_direction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNDirectionInput2githubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐDirectionInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
 	return args, nil
 }
 
@@ -463,6 +522,68 @@ func (ec *executionContext) _fieldMiddleware(ctx context.Context, obj any, next 
 // endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _Direction_origin(ctx context.Context, field graphql.CollectedField, obj *Direction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Direction_origin,
+		func(ctx context.Context) (any, error) {
+			return obj.Origin, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			return ec._fieldMiddleware(ctx, obj, next)
+		},
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Direction_origin(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Direction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Direction_destination(ctx context.Context, field graphql.CollectedField, obj *Direction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Direction_destination,
+		func(ctx context.Context) (any, error) {
+			return obj.Destination, nil
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			return ec._fieldMiddleware(ctx, obj, next)
+		},
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Direction_destination(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Direction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
 
 func (ec *executionContext) _MyMutation_createTodo(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
@@ -691,6 +812,55 @@ func (ec *executionContext) fieldContext_MyQuery_todos(_ context.Context, field 
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Todo", field.Name)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _MyQuery_direction(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_MyQuery_direction,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.MyQuery().Direction(ctx, fc.Args["input"].(DirectionInput))
+		},
+		func(ctx context.Context, next graphql.Resolver) graphql.Resolver {
+			return ec._fieldMiddleware(ctx, nil, next)
+		},
+		ec.marshalODirection2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐDirection,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_MyQuery_direction(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "MyQuery",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "origin":
+				return ec.fieldContext_Direction_origin(ctx, field)
+			case "destination":
+				return ec.fieldContext_Direction_destination(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Direction", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_MyQuery_direction_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -2438,6 +2608,160 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputDestination(ctx context.Context, obj any) (Destination, error) {
+	var it Destination
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"flightablePlace", "nonFlightablePlace"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "flightablePlace":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("flightablePlace"))
+			data, err := ec.unmarshalOFlightablePlace2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐFlightablePlace(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.FlightablePlace = data
+		case "nonFlightablePlace":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("nonFlightablePlace"))
+			data, err := ec.unmarshalONonFlightablePlace2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐNonFlightablePlace(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.NonFlightablePlace = data
+		}
+	}
+	// Execute INPUT_OBJECT level directives (e.g., @oneOf, @directive3)
+	// These run after all fields have been unmarshaled
+	directive0 := func(ctx context.Context) (any, error) { return it, nil }
+	directive1 := func(ctx context.Context) (any, error) {
+		namespace, err := ec.unmarshalNString2string(ctx, "Destination")
+		if err != nil {
+			return it, graphql.ErrorOnPath(ctx, err)
+		}
+		if ec.Directives.Validate == nil {
+			return it, errors.New("directive validate is not implemented")
+		}
+		return ec.Directives.Validate(ctx, asMap, directive0, namespace)
+	}
+	tmp, err := directive1(ctx)
+	if err != nil {
+		return it, graphql.ErrorOnPath(ctx, err)
+	}
+	if data, ok := tmp.(Destination); ok {
+		return data, nil
+	}
+	return it, graphql.ErrorOnPath(ctx, fmt.Errorf(`unexpected type %T from INPUT_OBJECT directive, should be Destination`, tmp))
+}
+
+func (ec *executionContext) unmarshalInputDirectionInput(ctx context.Context, obj any) (DirectionInput, error) {
+	var it DirectionInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"destination", "someField"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "destination":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("destination"))
+			data, err := ec.unmarshalNDestination2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐDestination(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Destination = data
+		case "someField":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("someField"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.SomeField = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputFlightablePlace(ctx context.Context, obj any) (FlightablePlace, error) {
+	var it FlightablePlace
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"iata"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "iata":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("iata"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Iata = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNonFlightablePlace(ctx context.Context, obj any) (NonFlightablePlace, error) {
+	var it NonFlightablePlace
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"uuid"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "uuid":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("uuid"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.UUID = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputTodoInput(ctx context.Context, obj any) (TodoInput, error) {
 	var it TodoInput
 	if obj == nil {
@@ -2479,7 +2803,27 @@ func (ec *executionContext) unmarshalInputTodoInput(ctx context.Context, obj any
 			it.Number = data
 		}
 	}
-	return it, nil
+	// Execute INPUT_OBJECT level directives (e.g., @oneOf, @directive3)
+	// These run after all fields have been unmarshaled
+	directive0 := func(ctx context.Context) (any, error) { return it, nil }
+	directive1 := func(ctx context.Context) (any, error) {
+		namespace, err := ec.unmarshalNString2string(ctx, "TodoInput")
+		if err != nil {
+			return it, graphql.ErrorOnPath(ctx, err)
+		}
+		if ec.Directives.Validate == nil {
+			return it, errors.New("directive validate is not implemented")
+		}
+		return ec.Directives.Validate(ctx, asMap, directive0, namespace)
+	}
+	tmp, err := directive1(ctx)
+	if err != nil {
+		return it, graphql.ErrorOnPath(ctx, err)
+	}
+	if data, ok := tmp.(TodoInput); ok {
+		return data, nil
+	}
+	return it, graphql.ErrorOnPath(ctx, fmt.Errorf(`unexpected type %T from INPUT_OBJECT directive, should be TodoInput`, tmp))
 }
 
 // endregion **************************** input.gotpl *****************************
@@ -2489,6 +2833,44 @@ func (ec *executionContext) unmarshalInputTodoInput(ctx context.Context, obj any
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
+
+var directionImplementors = []string{"Direction"}
+
+func (ec *executionContext) _Direction(ctx context.Context, sel ast.SelectionSet, obj *Direction) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, directionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Direction")
+		case "origin":
+			out.Values[i] = ec._Direction_origin(ctx, field, obj)
+		case "destination":
+			out.Values[i] = ec._Direction_destination(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.ProcessDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
 
 var myMutationImplementors = []string{"MyMutation"}
 
@@ -2613,6 +2995,25 @@ func (ec *executionContext) _MyQuery(ctx context.Context, sel ast.SelectionSet) 
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "direction":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._MyQuery_direction(ctx, field)
 				return res
 			}
 
@@ -3053,6 +3454,16 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) unmarshalNDestination2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐDestination(ctx context.Context, v any) (*Destination, error) {
+	res, err := ec.unmarshalInputDestination(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNDirectionInput2githubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐDirectionInput(ctx context.Context, v any) (DirectionInput, error) {
+	res, err := ec.unmarshalInputDirectionInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNID2int(ctx context.Context, v any) (int, error) {
 	res, err := graphql.UnmarshalIntID(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -3331,6 +3742,29 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	_ = ctx
 	res := graphql.MarshalBoolean(*v)
 	return res
+}
+
+func (ec *executionContext) marshalODirection2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐDirection(ctx context.Context, sel ast.SelectionSet, v *Direction) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Direction(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOFlightablePlace2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐFlightablePlace(ctx context.Context, v any) (*FlightablePlace, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFlightablePlace(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalONonFlightablePlace2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋ_examplesᚋtodoᚐNonFlightablePlace(ctx context.Context, v any) (*NonFlightablePlace, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputNonFlightablePlace(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
